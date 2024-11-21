@@ -2,15 +2,15 @@
   <q-page class="row q-pt-xl">
     <div class="full-width q-px-xl">
       <div class="q-mb-xl">
-        <q-input ref="nameRef" v-model="tempData.name" label="姓名" :rules="[val => !!val || '姓名不能為空']" />
-        <q-input ref="ageRef" v-model="tempData.age" label="年齡" :rules="[val => !!val || '年齡不能為空', val => !isNaN(val) || '年齡必須是數字']" />
+        <q-input ref="nameRef" v-model="userStore.tempData.name" label="姓名" :rules="[val => !!val || '姓名不能為空']" />
+        <q-input ref="ageRef" v-model="userStore.tempData.age" label="年齡" :rules="[val => !!val || '年齡不能為空', val => !isNaN(val) || '年齡必須是數字']" />
         <q-btn color="primary" class="q-mt-md" @click="clickSubmitButton()" :disable="submitButtonDisabled">{{submitButtonText}}</q-btn>
       </div>
       <q-table
       flat
       bordered
       ref="tableRef"
-      :rows="blockData"
+      :rows="userStore.blockData"
       :columns="(tableConfig as QTableProps['columns'])"
       row-key="id"
       hide-pagination
@@ -77,17 +77,9 @@
 </template>
 
 <script setup lang="ts">
-import axios from 'axios';
 import { QInput, QTableProps, useQuasar } from 'quasar';
 import { computed, onMounted, ref } from 'vue';
-
-interface UserData {
-  id: string;
-  name: string;
-  age: number;
-}
-
-type UserDataWithoutId = Omit<UserData, 'id'>;
+import { useUserStore } from '../stores/userStore';
 
 interface btnType {
   label: string;
@@ -100,8 +92,6 @@ const $q = useQuasar()
 const nameRef = ref<QInput | null>(null)
 const ageRef = ref<QInput | null>(null)
 
-const blockData = ref<UserDataWithoutId[]>([
-]);
 const tableConfig = ref([
 {
   label: '姓名',
@@ -131,142 +121,67 @@ const tableButtons = ref<btnType[]>([
 },
 ]);
 
-const tempData = ref({
-  id: '',
-  name: '',
-  age: '',
-});
-
-const submitButtonText = computed(() => tempData.value.id ? '更新' : '新增')
+const userStore = useUserStore()
+const submitButtonText = computed(() => userStore.tempData.id ? '更新' : '新增')
 const submitButtonDisabled = computed(() => {
-  return !tempData.value.name || !tempData.value.age || nameRef.value?.hasError || ageRef.value?.hasError
+  return !userStore.tempData.name || !userStore.tempData.age || nameRef.value?.hasError || ageRef.value?.hasError
 })
 
-const api = {
-  get: () => axios.get('https://dahua.metcfire.com.tw/api/CRUDTest/a'),
-  post: (user: UserDataWithoutId) => axios.post('https://dahua.metcfire.com.tw/api/CRUDTest', user),
-  patch: (user: UserData) => axios.patch('https://dahua.metcfire.com.tw/api/CRUDTest', user),
-  delete: (id: string) => axios.delete(`https://dahua.metcfire.com.tw/api/CRUDTest/${id}`),
-}
-
-const loadData = async () => {
-  $q.loading.show()
-
-  try {
-    const { data } = await api.get()
-    blockData.value = data
-  } catch(error) {
-      $q.notify({
-        type: 'negative',
-        message: error.message,
-      })
-  } finally {
-    $q.loading.hide()
-  }
-}
-
-const createData = async () => {
-  $q.loading.show()
-
-  try {
-    await api.post({
-      name: tempData.value.name,
-      age: Number(tempData.value.age),
-    })
-    $q.notify({
-      type: 'positive',
-      message: '新增成功',
-    })
-    await loadData()
-  } catch(error) {
-      $q.notify({
-        type: 'negative',
-        message: error.message,
-      })
-  } finally {
-    $q.loading.hide()
-  }
-}
-
-const updateData = async () => {
-  $q.loading.show()
-
-  try {
-    await api.patch({
-      id: tempData.value.id,
-      name: tempData.value.name,
-      age: Number(tempData.value.age),
-    })
-    $q.notify({
-      type: 'positive',
-      message: '更新成功',
-    })
-    await loadData()
-  } catch(error) {
-      $q.notify({
-        type: 'negative',
-        message: error.message,
-      })
-  } finally {
-    $q.loading.hide()
-  }
-}
-
-const deleteData = async (id: string) => {
-  $q.dialog({
-    title: '提示',
-    message: '是否確定刪除該筆資料？',
-    cancel: true,
-    persistent: true,
-  }).onOk(async () => {
-    $q.loading.show()
-
-    try {
-      await api.delete(id)
-      $q.notify({
-        type: 'positive',
-        message: '刪除成功',
-      })
-      await loadData()
-    } catch(error) {
-        $q.notify({
-          type: 'negative',
-          message: error.message,
-        })
-    } finally {
-      $q.loading.hide()
-    }
-  })
-}
-
 const clickSubmitButton = async () => {
-  if (tempData.value.id) {
-    await updateData()
-  } else {
-    await createData()
+  $q.loading.show()
+  try {
+    if (userStore.tempData.id) {
+      await userStore.updateData();
+      $q.notify({ type: 'positive', message: '更新成功' });
+    } else {
+      await userStore.createData();
+      $q.notify({ type: 'positive', message: '新增成功' });
+    }
+  } catch (error) {
+    $q.notify({ type: 'negative', message: error.message });
+  } finally {
+    $q.loading.hide()
   }
-  // clear data
-  tempData.value.id = ''
-  tempData.value.name = ''
-  tempData.value.age = ''
-
-  loadData()
 }
 
 function handleClickOption(btn: btnType, data: any) {
   switch (btn.status) {
     case 'edit':
-      tempData.value.id = data.id
-      tempData.value.name = data.name
-      tempData.value.age = data.age
-    break;
+      userStore.tempData.id = data.id;
+      userStore.tempData.name = data.name;
+      userStore.tempData.age = data.age;
+      break;
     case 'delete':
-      deleteData(data.id)
-    break;
+      $q.dialog({
+        title: '提示',
+        message: '是否確定刪除該筆資料？',
+        cancel: true,
+        persistent: true,
+      }).onOk(async () => {
+        $q.loading.show()
+        try {
+          await userStore.deleteData(data.id);
+          $q.notify({ type: 'positive', message: '刪除成功' });
+        } catch (error) {
+          $q.notify({ type: 'negative', message: error.message });
+        } finally {
+          $q.loading.hide()
+        }
+      });
+      break;
   }
 }
 
-onMounted(loadData)
+onMounted(async() => {
+  $q.loading.show()
+  try {
+    await userStore.loadData()
+  } catch(error) {
+    $q.notify({ type: 'negative', message: error.message });
+  } finally {
+    $q.loading.hide()
+  }
+});
 </script>
 
 <style lang="scss" scoped>
