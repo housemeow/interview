@@ -101,10 +101,6 @@ const nameRef = ref<QInput | null>(null)
 const ageRef = ref<QInput | null>(null)
 
 const blockData = ref<UserDataWithoutId[]>([
-{
-  name: 'test',
-  age: 25,
-},
 ]);
 const tableConfig = ref([
 {
@@ -112,12 +108,14 @@ const tableConfig = ref([
   name: 'name',
   field: 'name',
   align: 'left',
+  sortable: true,
 },
 {
   label: '年齡',
   name: 'age',
   field: 'age',
   align: 'left',
+  sortable: true,
 },
 ]);
 const tableButtons = ref<btnType[]>([
