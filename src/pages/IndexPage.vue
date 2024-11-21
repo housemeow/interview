@@ -2,9 +2,9 @@
   <q-page class="row q-pt-xl">
     <div class="full-width q-px-xl">
       <div class="q-mb-xl">
-        <q-input v-model="tempData.name" label="姓名" />
-        <q-input v-model="tempData.age" label="年齡" />
-        <q-btn color="primary" class="q-mt-md" @click="clickSubmitButton()">{{submitButtonText}}</q-btn>
+        <q-input ref="nameRef" v-model="tempData.name" label="姓名" :rules="[val => !!val || '姓名不能為空']" />
+        <q-input ref="ageRef" v-model="tempData.age" label="年齡" :rules="[val => !!val || '年齡不能為空', val => !isNaN(val) || '年齡必須是數字']" />
+        <q-btn color="primary" class="q-mt-md" @click="clickSubmitButton()" :disable="submitButtonDisabled">{{submitButtonText}}</q-btn>
       </div>
       <q-table
       flat
@@ -78,7 +78,7 @@
 
 <script setup lang="ts">
 import axios from 'axios';
-import { QTableProps, useQuasar } from 'quasar';
+import { QInput, QTableProps, useQuasar } from 'quasar';
 import { computed, onMounted, ref } from 'vue';
 
 interface UserData {
@@ -96,6 +96,9 @@ interface btnType {
 }
 
 const $q = useQuasar()
+
+const nameRef = ref<QInput | null>(null)
+const ageRef = ref<QInput | null>(null)
 
 const blockData = ref<UserDataWithoutId[]>([
 {
@@ -137,6 +140,9 @@ const tempData = ref({
 });
 
 const submitButtonText = computed(() => tempData.value.id ? '更新' : '新增')
+const submitButtonDisabled = computed(() => {
+  return !tempData.value.name || !tempData.value.age || nameRef.value?.hasError || ageRef.value?.hasError
+})
 
 const api = {
   get: () => axios.get('https://dahua.metcfire.com.tw/api/CRUDTest/a'),
@@ -169,6 +175,10 @@ const createData = async () => {
       name: tempData.value.name,
       age: Number(tempData.value.age),
     })
+    $q.notify({
+      type: 'positive',
+      message: '新增成功',
+    })
     await loadData()
   } catch(error) {
       $q.notify({
@@ -189,6 +199,10 @@ const updateData = async () => {
       name: tempData.value.name,
       age: Number(tempData.value.age),
     })
+    $q.notify({
+      type: 'positive',
+      message: '更新成功',
+    })
     await loadData()
   } catch(error) {
       $q.notify({
@@ -201,19 +215,30 @@ const updateData = async () => {
 }
 
 const deleteData = async (id: string) => {
-  $q.loading.show()
+  $q.dialog({
+    title: '提示',
+    message: '是否確定刪除該筆資料？',
+    cancel: true,
+    persistent: true,
+  }).onOk(async () => {
+    $q.loading.show()
 
-  try {
-    await api.delete(id)
-    await loadData()
-  } catch(error) {
+    try {
+      await api.delete(id)
       $q.notify({
-        type: 'negative',
-        message: error.message,
+        type: 'positive',
+        message: '刪除成功',
       })
-  } finally {
-    $q.loading.hide()
-  }
+      await loadData()
+    } catch(error) {
+        $q.notify({
+          type: 'negative',
+          message: error.message,
+        })
+    } finally {
+      $q.loading.hide()
+    }
+  })
 }
 
 const clickSubmitButton = async () => {
@@ -226,6 +251,7 @@ const clickSubmitButton = async () => {
   tempData.value.id = ''
   tempData.value.name = ''
   tempData.value.age = ''
+
   loadData()
 }
 
@@ -237,13 +263,7 @@ function handleClickOption(btn: btnType, data: any) {
       tempData.value.age = data.age
     break;
     case 'delete':
-      deleteData(data.id).then(() => {
-        $q.notify({
-          type: 'positive',
-          message: '刪除成功',
-        })
-        loadData()
-      })
+      deleteData(data.id)
     break;
   }
 }
