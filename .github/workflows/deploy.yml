@@ -1,0 +1,38 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main # 當 main 分支有變更時執行，根據實際需求修改
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 檢出專案程式碼
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. 設定 Node.js 環境
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18 # 使用 Node.js 版本，可根據專案需求調整
+
+      # 3. 安裝相依套件
+      - name: Install dependencies
+        run: npm install
+
+      # 4. 執行建置
+      - name: Build the project
+        run: npm run build
+
+      # 5. 部署到 gh-pages 分支的 docs 資料夾
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: dist/spa
+          destination_dir: docs # 將建置後內容放到 docs 資料夾
+          publish_branch: gh-pages
